@@ -4,19 +4,18 @@
 #'date: "October 26th, 2021"
 #'---
 
-#' This project's goal is to treat, manipulate and analyze songs and MV's (music video) data from Korean boy-band BTS. 
-#' Ultimately, machine learning models will be used to predict some trends in data.
-#' Data were collected by the author using external sources, such as Youtube, Spotify, Wikipedia and Musicboard.
-#' The data dictionary is available on my GitHub directory:
+# This project's goal is to treat, manipulate and analyze songs and MV's (music video) data from Korean boy-band BTS. 
+# Ultimately, machine learning models will be used to predict some trends in data.
+# Data were collected by the author using external sources, such as Youtube, Spotify, Wikipedia and Musicboard.
+# The data dictionary is available on my GitHub directory:
 
-#' > Set the working directory and loading the packages
-#setup
+# Set the working directory and loading the packages
 setwd("C:/Users/Rodrigo/Desktop/BigDataAzure/MiniProjetos/Kpop")
 
-#' > This line silences warnings throughout the script execution
+# This line silences warnings throughout the script execution
 options(warn=-1)
 
-#' r setup, message = FALSE
+#
 library(dplyr)
 library(ggplot2)
 library(gridExtra)
@@ -24,61 +23,58 @@ library(lubridate)
 library(corrplot)
 library(tidyr)
 
-#' > Load and verify data
+# Load and verify data
 data <- read.csv("data.csv", sep = ";")
 str(data)
 
-#' ## Data cleaning and formatting to be done:
-#' * convert "release" and "mv_release_date" to date
-#' * convert "album", "language", "single" and "unit" to factor
-#' * convert "jn", "jk", "th", "nj", "jh", "sg", "jm" to numeric
-#' * delete the last column
+#### Data cleaning and formatting ####
+# * convert "release" and "mv_release_date" to date
+# * convert "album", "language", "single" and "unit" to factor
+# * convert "jn", "jk", "th", "nj", "jh", "sg", "jm" to numeric
+# * delete the last column
 
-#' ### Converting the dates
-df <- data   #creating a copy so that the original dataset wont change
+# Converting the dates
+df <- data                                                    # Creating a copy so that the original dataset wont change
 df$release <- parse_date_time(data$release, "dmy")
 df$mv_release_date <- parse_date_time(data$mv_release_date,"dmy")
 
-#' ### Converting categorical variables
+# Converting categorical variables
 columns <- c("album", "language", "single", "mv", "unit")
 df[, columns] <- lapply(df[, columns], factor)
 
-#' ### Converting numerical values
+# Converting numerical values
 members <- c("jn", "jk", "th", "nj", "jh", "sg", "jm")
 df[, members] <- lapply(data[, members], as.double)
 
-#' ### Deleting the last column
+# Deleting the last column
 df <- subset(df, select = -X)
 str(df)
 View(df)
 
-#' ## Data transformation
-#' Now, let us transform our data set, create new variables and make some conversions 
-#' prior to data processing and analysis.
+#### Data transformation ####
 
-#' ### Total sung time
-df$total_sung <- rowSums(df[, members], na.rm = TRUE)
+df$total_sung <- rowSums(df[, members], na.rm = TRUE)         # Total singing time
 
-#' ### Sung percentage
-new_columns <- paste(members, "perc", sep = "_")
-df[, new_columns] <- df[, members] / df$total_sung
+new_columns <- paste(members, "perc", sep = "_") 
+df[, new_columns] <- df[, members] / df$total_sung            # Singing time percentage
 
-#' ### Sung time by line
 rap = c("nj", "jh", "sg")
 vocal = c("jn", "jk", "th", "jm")
-df$rap <- rowSums(df[, rap], na.rm = TRUE)
-df$vocal <- rowSums(df[, vocal], na.rm = TRUE)
+df$rap <- rowSums(df[, rap], na.rm = TRUE)                    # Rap line singing time
+df$vocal <- rowSums(df[, vocal], na.rm = TRUE)                # Vocal line singing time
 
-#' ### Ratios
-df$likes_dislikes <- df$likes/df$dislikes
-df$likes_views <- df$likes/df$views
-df$dislikes_views <- df$dislikes/df$views
-df$mv_song <- df$mv_duration / df$length
+# Calculating ratios 
+df$likes_dislikes <- df$likes/df$dislikes                     # Likes / dislikes
+df$likes_views <- df$likes/df$views                           # Likes / MV's views
+df$dislikes_views <- df$dislikes/df$views                     # Dislikes / MV's views
+df$mv_song <- df$mv_duration / df$length                      # MV's duration / song duration
 
-#' ### Rap / vocal line distribution ratio
-df <- df %>% mutate(rap_vocal = case_when(vocal > 0 ~ rap/vocal,
-                                    vocal == 0 & rap > 0 ~ 1))
+df <- df %>% 
+  mutate(rap_vocal = case_when(vocal > 0 ~ rap/vocal,         # Rap line / vocal line singing time ratio
+                               vocal == 0 & rap > 0 ~ 1))
 
+# Creating a new dataset with each member singing 
+# percentage for each song
 # Needs optimization
 a <- df %>% select(release, jn_perc)
 names(a)[2] <- "perc"
@@ -102,14 +98,15 @@ g <- df %>% select(release, jm_perc)
 g$member <- "jm"
 names(g)[2] <- "perc"
 
-df_vocal <- bind_rows(a,b,c,g)
-df_rap <- bind_rows(d,e,f)
+df_vocal <- bind_rows(a,b,c,g)                                # New vocal line df
+df_rap <- bind_rows(d,e,f)                                    # New rap line df
 
 #### Exploratory analysis ####
 
 # Overall analysis
-summary(df)
-str(df$mv_release_date)
+columns2 <- c("length", "language", "single", "mv",           # Some columns to take a look at
+              "rating", "rap_vocal", "mv_song")
+summary(df[columns2])
 
 df %>% group_by(unit) %>%
   summarise(rating = mean(rating, na.rm = TRUE),
